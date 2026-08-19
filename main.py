@@ -115,6 +115,7 @@ class Quiz:
 
         for num, choice in enumerate(self.choices, 1):
             print(f"({num}) {choice}")
+        print()
 
     def is_correct(self, user_answer):
         return self.answer == user_answer
