@@ -95,65 +95,165 @@ def save_json(file_path, dict):
 """
 
 
+def input_int(prompt, minimum=None, maximum=None):
+    """
+    정수를 정상적으로 입력할 때까지 반복해서 입력받습니다.
+    """
+
+    while True:
+        try:
+            value = int(input(prompt).strip())
+
+            if minimum is not None and value < minimum:
+                raise ValueError
+
+            if maximum is not None and value > maximum:
+                raise ValueError
+
+            return value
+
+        except ValueError:
+            print(f"{SYS} 올바른 숫자를 입력해주세요.")
+            
+
 class QuizManager:
     """
+    퀴즈 목록을 불러오고 관리합니다.
+
+    - 퀴즈 필터링
     - 퀴즈 문항 추가
-    - 퀴즈 목록 보여주기
+    - 퀴즈 목록 출력
     """
-    def __init__(self, n, level):
+
+    def __init__(self):
         try:
-            self.quizzes = load_json(QUIZ_DATA_FILE)
-            self.qty_quizzes = len(self.quizzes)
-            self.filtered_quizzes = [quiz for quiz in self.quizzes if quiz.get("level") == level][:n]
+            data = load_json(QUIZ_DATA_FILE)
+
+            if not isinstance(data, list):
+                raise ValueError(
+                    "quiz.json의 최상위 데이터는 배열이어야 합니다."
+                )
+
+            self.quizzes = data
+
         except FileNotFoundError:
-            print(f"{SYS} 퀴즈 파일을 찾을 수 없어 기본 퀴즈로 대체합니다.")
-            self.quizzes = DEFAULT_QUIZ
-        except json.JSONDecodeError:
-            print(f"{SYS} data.json의 JSON 형식이 올바르지 않습니다.")
+            print(
+                f"{SYS} 퀴즈 파일을 찾을 수 없어 "
+                "기본 퀴즈로 대체합니다."
+            )
+
+            # DEFAULT_QUIZ에는 level이 없으므로 기본값 1을 추가합니다.
+            self.quizzes = [
+                {
+                    **quiz,
+                    "level": quiz.get("level", 1),
+                }
+                for quiz in DEFAULT_QUIZ
+            ]
+
+        except (json.JSONDecodeError, ValueError) as error:
+            print(f"{SYS} quiz.json을 읽을 수 없습니다: {error}")
+
+            self.quizzes = [
+                {
+                    **quiz,
+                    "level": quiz.get("level", 1),
+                }
+                for quiz in DEFAULT_QUIZ
+            ]
+
+    def filter(self, n, level):
+        """
+        원하는 난이도의 문제를 최대 n개 반환합니다.
+        """
+
+        filtered_quizzes = [
+            quiz
+            for quiz in self.quizzes
+            if quiz.get("level") == level
+        ]
+
+        return filtered_quizzes[:n]
 
     def add(self):
         print(SYS, "문제를 입력해주세요.")
-        a = input("question: ")
-        # choices
-        b = int(input("객관식으로 하려면 숫자 1, 주관식으로 하려면 숫자 2를 입력하세요: ").strip())
-        if b == 1:
+
+        question = input("question: ").strip()
+
+        quiz_type = input_int(
+            "객관식은 1, 주관식은 2를 입력하세요: ",
+            minimum=1,
+            maximum=2,
+        )
+
+        if quiz_type == 1:
             print(SYS, "선택지를 4개 입력해주세요.")
-            c1 = input("선택 1: ")
-            c2 = input("선택 2: ")
-            c3 = input("선택 3: ")
-            c4 = input("선택 4: ")
-            f = int(input("정답은 몇번으로 할까요? :").strip())
-            # 퀴즈 난이도 자동 판별
-            if (len(c1)+len(c2)+len(c3)+len(c4)) / 4 > 6:
+
+            choices = [
+                input(f"선택 {number}: ").strip()
+                for number in range(1, 5)
+            ]
+
+            answer = input_int(
+                "정답은 몇 번인가요? ",
+                minimum=1,
+                maximum=4,
+            )
+
+            # 기존 조건 유지:
+            # 선택지의 평균 글자 수가 6을 넘으면 level 1
+            average_length = sum(
+                len(choice) for choice in choices
+            ) / len(choices)
+
+            if average_length > 6:
                 level = 1
             else:
                 level = 0
-        else: 
-            f = input("정답을 입력해주세요 :")
-            # 퀴즈 난이도 자동 판별
+
+        else:
+            choices = []
+            answer = input("정답을 입력해주세요: ").strip()
             level = 2
+
+        # 문제 개수가 아니라 가장 큰 ID를 기준으로 다음 ID를 생성합니다.
+        next_id = max(
+            (
+                quiz.get("id", 0)
+                for quiz in self.quizzes
+            ),
+            default=0,
+        ) + 1
+
         new_quiz = {
-            "id": self.qty_quizzes,
+            "id": next_id,
             "level": level,
-            "question": a,
-            "choices": [],
-            "answer":f 
+            "question": question,
+            "choices": choices,
+            "answer": answer,
         }
 
         self.quizzes.append(new_quiz)
 
-        save_json(QUIZ_DATA_FILE, self.quizzes)
+        save_json(
+            QUIZ_DATA_FILE,
+            self.quizzes,
+        )
+
+        print(f"{SYS} {next_id}번 문제가 추가되었습니다.")
 
     def list(self):
-        print(SYS, "퀴즈 전체 목록을 출력합니다. ----------------------------")
+        print(
+            SYS,
+            "퀴즈 전체 목록을 출력합니다."
+        )
+
         for quiz in self.quizzes:
             print()
             print(quiz)
-            print()
 
-        print(SYS, "퀴즈 전체 목록 끝 ----------------------------")
-
-
+        print()
+        print(SYS, "퀴즈 전체 목록 끝")
 
 
 class ScoreManager:
@@ -162,12 +262,16 @@ class ScoreManager:
     """
     def __init__(self):
         self.current_score = 0
+
         try:    
             self.max_score = load_json(STATE_FILE).get("max_score")
         except FileNotFoundError:
             return f"{SYS} {STATE_FILE} 파일을 찾을 수 없습니다."
         except json.JSONDecodeError:
             return f"{SYS} data.json의 JSON 형식이 올바르지 않습니다."
+
+    def reset(self):
+        self.current_score = 0
 
     def check(self):
         return self.current_score
@@ -182,7 +286,7 @@ class ScoreManager:
         # 퀴즈 게임이 끝났을 때 총점을 max_score와 비교하여 갱신하거나 유지함.
         if self.current_score > self.max_score:
             self.max_score = self.current_score
-            save_json(STATE_FILE, "max_score", self.max_score)
+            save_json(STATE_FILE, {"max_score": self.max_score})
             return f"{SYS} 축하합니다. 최고 점수가 갱신되었습니다! ❤️‍🔥"
         return f"{SYS} 지금까지의 최고 점수는 {self.max_score} 입니다."
     
@@ -206,25 +310,23 @@ class QuizGame:
             q.display()
 
             # 답 입력받기
-            while True:
-                try:
-                    user_answer = int(input("🤔 답은 몇번일까요? (번호로 입력): ").strip())
-                    if user_answer < 1 or user_answer > 4:
-                        raise ValueError
-                    break
-                except ValueError:
-                    print("‼️ 올바른 숫자를 입력하세요!\n")
-            
+            if q.is_multiple_choice:
+                user_answer = input_int("🤔 답은 몇번일까요? (번호로 입력): ", minimum=1, maximum=len(q.choices))
+            else:
+                user_answer = input("🤔 정답을 입력하세요: ").strip()
+                
             # 정답 여부 판별
             if q.is_correct(user_answer):
+                self.score_manager.record()
                 result = " 👏👏 정답!! 👏👏 "
             else:
                 result = " ❌ 틀렸어요... 😭"
         
             # 정답 여부 출력
+            print()
             print("◻️" * 30)
             print("◻️◻️◻️◻️◻️", result, "◻️◻️◻️◻️◻️")
-            print("◻️" * 30)
+            print("◻️" * 30, "\n")
             print2()
 
         # 퀴즈 종료
@@ -240,21 +342,38 @@ class QuizGame:
 
 
 class Quiz:
-    def __init__(self, id, question, choices, answer):
+    def __init__(self, id, level, question, choices, answer):
         self.quiz_id = id
+        self.level = level
         self.question = question
         self.choices = choices
         self.answer = answer
 
+    @property
+    def is_multiple_choice(self):
+        """
+        choices가 있으면 객관식, 비어 있으면 주관식입니다.
+        """
+
+        return bool(self.choices)
+    
     def display(self):
-        print(f"{self.quiz_id}. {self.question}")
+        print(f"{self.quiz_id}. {self.question}\n")
 
         for num, choice in enumerate(self.choices, 1):
             print(f"   ({num}) {choice}")
         print()
 
     def is_correct(self, user_answer):
-        return self.answer == user_answer
+        if self.is_multiple_choice:
+            return self.answer == user_answer
+
+        # 주관식은 대소문자와 띄어쓰기를 무시합니다.
+        correct_answer = "".join(str(self.answer).split()).casefold()
+
+        submitted_answer = "".join(str(user_answer).split()).casefold()
+
+        return correct_answer == submitted_answer
 
 
 
@@ -270,32 +389,35 @@ def main():
 
     # 메뉴 보여주고 시작
     while True:
-        while True:
-            try:
-                print(SYS, "원하는 메뉴를 선택하세요.")
-                menu = int(input("퀴즈 풀기(1) / 퀴즈 추가(2) / 퀴즈 목록 보기(3) / 최고점수 확인(4) ").strip())
-                break
-            except:
-                print(SYS, "정확한 숫자를 입력해주세요.")
+        print(SYS, "원하는 메뉴를 선택하세요.")
+        menu = input_int(("프로그램 종료(0) / 퀴즈 풀기(1) / 퀴즈 추가(2) / 퀴즈 목록 보기(3) / 최고점수 확인(4) "), minimum=0, maximum=4)
+
+        if menu == 0:
+            print(SYS, "프로그램을 종료합니다.")
+            quit()
 
         # 퀴즈 풀기(1)        
         if menu == 1:
-            while True:
-                try:
-                    n = int(input(SYS, "문제를 몇개 풀고 싶은가요? :").strip())
-                    break
-                except:
-                    print(SYS, "정확하게 숫자로 입력해주세요")
+            n = input_int(f"{SYS} 몇개의 문제를 풀어볼까요? :", minimum=1)
 
-            while True:
-                try:
-                    level = int(input(SYS, "난이도를 선택해주세요. 1(쉬움)/2(중간)/3(어려움)").strip())
-                    break
-                except:
-                    print(SYS, "정확하게 숫자로 입력해주세요")
+            selected_difficulty = input_int(
+                (
+                    f"{SYS} 난이도를 선택해주세요. "
+                    "1(쉬움) / "
+                    "2(중간) / "
+                    "3(어려움): "
+                ),
+                minimum=1,
+                maximum=3,
+            )
+
+            # 사용자 입력 1, 2, 3 ->  JSON의 level 0, 1, 2로 변환
+            level = selected_difficulty - 1
 
             # 퀴즈 진행자 생성
             quiz_game = QuizGame(n, level, quiz_manager, score_manager)
+            # 퀴즈 진행 시작
+            quiz_game.start()
 
         # 퀴즈 추가(2)
         elif menu == 2:
@@ -306,9 +428,15 @@ def main():
             quiz_manager.list()
 
         # 최고점수 확인(4)
-        else:
+        elif menu == 4:
             print(SYS, f"최고 점수: {score_manager.max()}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print()
+        print2()
+        print(SYS, "Ctrl + C가 입력되어 프로그램을 종료합니다.")
+        
