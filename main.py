@@ -206,7 +206,7 @@ class QuizManager:
                 len(choice) for choice in choices
             ) / len(choices)
 
-            if average_length > 6:
+            if average_length > 15:
                 level = 1
             else:
                 level = 0
