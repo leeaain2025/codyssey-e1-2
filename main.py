@@ -104,17 +104,17 @@ class QuizGame:
 
 
 class Quiz:
-    def __init__(self, quiz_id, question, choices, answer):
-        self.quiz_id = quiz_id
+    def __init__(self, id, question, choices, answer):
+        self.quiz_id = id
         self.question = question
         self.choices = choices
         self.answer = answer
 
     def display(self):
-        print(f"[{self.quiz_id}] {self.question}")
+        print(f"{self.quiz_id}. {self.question}")
 
         for num, choice in enumerate(self.choices, 1):
-            print(f"({num}) {choice}")
+            print(f"   ({num}) {choice}")
         print()
 
     def is_correct(self, user_answer):
@@ -125,6 +125,7 @@ class Quiz:
 오류를 발견하는 책임과 사용자에게 대응 방법을 결정하는 책임을 분리
 """
 def main():
+    # 퀴즈 데이터와 점수 데이터 불러오기
     try:
         quizzes = load_json(QUIZ_DATA_FILE)
     except FileNotFoundError:
@@ -138,11 +139,31 @@ def main():
 
     except json.JSONDecodeError:
         print(f"{SYS} data.json의 JSON 형식이 올바르지 않습니다.")
-    
+    print2()
+    print('*** 디버깅 용 ***')
     print(quizzes)
     print2()
     print(state)
 
+    # 
+    for quiz in quizzes:
+        # q = Quiz(quiz.get("id"))
+        q = Quiz(**quiz)
+        q.display()
+        while True:
+            try:
+                user_answer = int(input("🤔 답은 몇번일까요? (번호로 입력): "))
+                if user_answer < 1 or user_answer > 4:
+                    raise ValueError
+                break
+            except ValueError:
+                print("‼️ 올바른 숫자를 입력하세요!\n")
+            
+        # 정답 여부 판별
+        print("◻️" * 30)
+        print("◻️◻️◻️◻️◻️", " 👏👏 정답!! 👏👏 " if q.is_correct(user_answer) else " ❌ 틀렸어요... 😭", "◻️◻️◻️◻️◻️")
+        print("◻️" * 30)
+        print2()
 
 if __name__ == "__main__":
     main()
