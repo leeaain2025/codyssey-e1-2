@@ -264,11 +264,13 @@ class ScoreManager:
         self.current_score = 0
 
         try:    
-            self.max_score = load_json(STATE_FILE).get("max_score")
+            self.max_score = load_json(STATE_FILE).get("max_score", 0)
         except FileNotFoundError:
-            return f"{SYS} {STATE_FILE} 파일을 찾을 수 없습니다."
+            print(f"{SYS} {STATE_FILE} 파일을 찾을 수 없어 새롭게 초기화 합니다.")
+            save_json(STATE_FILE, {"max_score": 0})
+            print(f"{SYS} state.json 파일을 생성하고 최고점수를 0점으로 초기화했습니다.")
         except json.JSONDecodeError:
-            return f"{SYS} data.json의 JSON 형식이 올바르지 않습니다."
+            print(f"{SYS} data.json의 JSON 형식이 올바르지 않습니다.")
 
     def reset(self):
         self.current_score = 0

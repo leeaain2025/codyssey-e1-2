@@ -36,3 +36,8 @@ python3 main.py
 
     - state.json: 점수
     - quiz.json: 퀴즈 데이터
+
+
+# 7. 디버깅 및 트러블 슈팅
+## 7.1 
+
